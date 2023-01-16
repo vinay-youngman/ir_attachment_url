@@ -35,40 +35,29 @@ class IrAttachment(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        url_fields = self.env.context.get("ir_attachment_url_fields")
-        if url_fields:
-            url_fields = url_fields.split(",")
-        self._set_where_to_store(vals_list)
+        new_val_list = []
         for values in vals_list:
-            if (
-                url_fields
-                and values.get("type") != "url"
-                and not values.get("url")
-                and values.get("res_model")
-                and values.get("res_field")
-                and values.get("datas")
-            ):
-                full_field_name = values["res_model"] + "." + values["res_field"]
-                if full_field_name in url_fields:
-                    values["url"] = values["datas"]
-                    values["type"] = "url"
-                    del values["datas"]
-            bucket = values.pop("_bucket", None)
-            if (
-                bucket
-                and values.get("datas")
-                and values.get("res_model") not in ["ir.ui.view", "ir.ui.menu"]
-            ):
-                values = self._check_contents(values)
+            if values.get('type') == 'binary':
+                # convert Binary to Url
+                bucket = self.get_s3_bucket_temp()
                 data = values.pop("datas")
                 filename = values.get("name")
-                mimetype = values.pop("mimetype")
-                values.update(
-                    self._get_datas_related_values_with_bucket(
-                        bucket, data, filename, mimetype
-                    )
-                )
-        return super(IrAttachment, self).create(vals_list)
+                mimetype = self._compute_mimetype(values)
+                related_values = self._get_datas_related_values_with_bucket(bucket, data, filename, mimetype)
+                val = {
+                    'name': 'test',
+                    'type': 'url',
+                    'datas': False,
+                    'url': related_values['url'],
+                    'company_id': 1,
+                    'public': False,
+                    'description': False
+                }
+            else:
+                new_val_list.append(values)
+
+            new_val_list.append(val)
+        return super(IrAttachment, self).create(new_val_list)
 
     def _get_datas_related_values_with_bucket(
         self, bucket, data, filename, mimetype, checksum=None
