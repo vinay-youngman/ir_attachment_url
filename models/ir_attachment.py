@@ -35,15 +35,21 @@ class IrAttachment(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        #super(IrAttachment, self).create(vals_list)
         new_val_list = []
         for values in vals_list:
-            if values.get('type') == 'binary':
+            if values.get('type') != 'url':
                 # convert Binary to Url
+                values = self._check_contents(values)
+                raw, datas = values.pop('raw', None), values.pop('datas', None)
+                if raw or datas:
+                    if isinstance(raw, str):
+                        raw = raw.encode()
+
                 bucket = self.get_s3_bucket_temp()
-                data = values.pop("datas")
                 filename = values.get("name")
                 mimetype = self._compute_mimetype(values)
-                related_values = self._get_datas_related_values_with_bucket(bucket, data, filename, mimetype)
+                related_values = self._get_datas_related_values_with_bucket(bucket, raw or base64.b64decode(datas or b''), filename, mimetype)
                 val = {
                     'name': 'test',
                     'type': 'url',
@@ -60,9 +66,9 @@ class IrAttachment(models.Model):
         return super(IrAttachment, self).create(new_val_list)
 
     def _get_datas_related_values_with_bucket(
-        self, bucket, data, filename, mimetype, checksum=None
+        self, bucket, bin_data, filename, mimetype, checksum=None
     ):
-        bin_data = base64.b64decode(data) if data else b""
+        bin_data = bin_data if bin_data else b""
         if not checksum:
             checksum = self._compute_checksum(bin_data)
         fname, url = self._file_write_with_bucket(
