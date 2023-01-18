@@ -35,8 +35,6 @@ class IrAttachment(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        #super(IrAttachment, self).create(vals_list)
-        new_val_list = []
         for values in vals_list:
             if values.get('type') != 'url':
                 # convert Binary to Url
@@ -50,20 +48,11 @@ class IrAttachment(models.Model):
                 filename = values.get("name")
                 mimetype = self._compute_mimetype(values)
                 related_values = self._get_datas_related_values_with_bucket(bucket, raw or base64.b64decode(datas or b''), filename, mimetype)
-                val = {
-                    'name': 'test',
-                    'type': 'url',
-                    'datas': False,
-                    'url': related_values['url'],
-                    'company_id': 1,
-                    'public': False,
-                    'description': False
-                }
-            else:
-                new_val_list.append(values)
+                values['type'] = 'url'
+                values['datas'] = False
+                values['url'] = related_values['url']
 
-            new_val_list.append(val)
-        return super(IrAttachment, self).create(new_val_list)
+        return super(IrAttachment, self).create(vals_list)
 
     def _get_datas_related_values_with_bucket(
         self, bucket, bin_data, filename, mimetype, checksum=None
